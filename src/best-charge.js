@@ -104,11 +104,6 @@ ${receiptText}
   }
 }
 function findDiscount(receiptItems) {
-  const nameText = receiptItems.map(receiptItem=> {
-      if (receiptItem.saved != 0) {
-        return `${receiptItem.cartItem.item.name}`
-      }
-    })
-    .join();
-  return `${nameText.slice(0, 3)}，${nameText.slice(5, 7)}`;
+  return receiptItems.filter(receiptItem=>receiptItem.saved!=0)
+    .map(receiptItem=>receiptItem.cartItem.item.name).join().replace(',','，');
 }
