@@ -1,7 +1,11 @@
-//面向对象思想：场地有一个schedule,cancel方法，一个类型
 const rl = require('./src/readline');
 const _ = require('lodash');
 const chargeStandards = require('./src/charge-standards');
+
+let books = [];
+let cancelBooks = [];
+let total = [];
+
 //验证输入合法
 function isLegal(arr) {
   let dateReg = /^(\d{4})-(\d{2})-(\d{2})$/,
@@ -12,28 +16,28 @@ function isLegal(arr) {
   if (dateReg.test(arr[1]) && hourReg.test(arr[2]) && countTypeReg.test(arr[3])) {
     if (start >= end) {
       console.log("Error: the booking is valid");
+      return false;
     } else {
-      if (arr.length === 4) {//输入是预定
-        console.log("获取预定");
-        let bol = getScheduleTime(arr);
-        console.log("bol" + bol);
-        if (bol) {
+      if (arr.length === 4) {//预定成功
+        if (getScheduleTime(arr)) {
           console.log("Success: the booking is accepted!");
+          return true;
         } else {
           console.log("Error: the booking conflicts with existing bookings!");
+          return false;
         }
-      } else if (arr.length === 5 && arr[4] === 'C') {//输入是取消预定
-        console.log("取消预定");
+      } else if (arr.length === 5 && arr[4] === 'C') {//取消预定成功
         getCancelTime(arr);
+        return true;
+      }else{
+        return false;
       }
     }
   } else {
     console.log("Error: the booking is valid");
+    return false;
   }
 }
-
-let books = [];
-let cancelBooks = [];
 
 //获取预定
 function getScheduleTime(arr) {
@@ -72,20 +76,19 @@ function getCancelTime(arr) {
   for (i = 0; i < books.length; i++) {
     if (_.isEqual(books[i], cancel)) {
       books.splice(i, 1);
-      console.log("取消后" + books.length);
       cancelBooks.push(cancel);
       flag = true;
       console.log("Success: the booking is accepted!");
-      break;
+      return true;
     }
   }
   if (!flag) {
     console.log("Error: the booking being cancelled does not exist!");
+    return false;
   }
 }
-//场地A,B,C,D分组:目前传来预定记录
+//A,B,C,D分组
 function generateRecords() {
-  //array: [{},{}...]
   let aBooked = [], bBooked = [], cBooked = [], dBooked = [],
     aCanceled = [], bCanceled = [], cCanceled = [], dCanceled = [];
   books.forEach((book)=> {
@@ -126,7 +129,7 @@ function generateRecords() {
   [aCanceled, bCanceled, cCanceled, dCanceled].forEach((cancelBook)=> {
     getSubTotal(cancelBook, true);
   });
-  //调用打印
+  //打印
   console.log("收入汇总");
   console.log("---");
   console.log("场地:A");
@@ -143,7 +146,7 @@ function generateRecords() {
   console.log("---");
   console.log(`总计：${allCharge}元`);
 }
-//输入时间对比在给定时间的哪段
+
 function calculateSubTotal(givenDays, start, end) {
   for (let day of givenDays) {
     let givenStart = parseInt(day.date.slice(0, 2));
@@ -175,32 +178,34 @@ function getSubTotal() {
   }
 }
 
-let total = [];
-//打印订单
+//打印收费
 function printCharge() {
-  let countRecords = Array.from(arguments);
-  //console.log("场地:"+countRecords[0][0].countType);
-  let bookedSum = 0,
-    canceledSum = 0,
-    countSubtotal = 0;
-  countRecords.forEach((countRecord)=> {
-    countRecord.forEach((record)=> {
-      let date = record.date;
-      let time = record.start + ":00" + "~" + record.end + ":00";
-      if (record.bookedSubtotal) {
-        bookedSum += record.bookedSubtotal;
-        console.log(`${date} ${time} ${record.bookedSubtotal}元`);
-      } else {
-        canceledSum += record.cancelSubtotal;
-        console.log(`${date} ${time} 违约金 ${record.cancelSubtotal}元`);
-      }
-    })
+  let countBooked = Array.from(arguments)[0];
+  let countCanceled = Array.from(arguments)[1];
+  let bookedSum = 0, canceledSum = 0, countSubtotal = 0;
+  let countRecords = countBooked.concat(countCanceled);
+  let orderRecords = countRecords.sort((a, b)=> {
+    let time_a = new Date(a.date + " " + a.start + ":00");
+    let time_b = new Date(b.date + " " + b.start + ":00");
+    return time_a - time_b;
+  });
+  orderRecords.forEach((record)=> {
+    let date = record.date;
+    let time = record.start + ":00" + "~" + record.end + ":00";
+    if (record.bookedSubtotal) {
+      bookedSum += record.bookedSubtotal;
+      console.log(`${date} ${time} ${record.bookedSubtotal}元`);
+    } else {
+      canceledSum += record.cancelSubtotal;
+      console.log(`${date} ${time} 违约金 ${record.cancelSubtotal}元`);
+    }
   });
   countSubtotal = bookedSum + canceledSum;
-  console.log(`小计：${countSubtotal}元
-  `);
   total.push(countSubtotal);
+  console.log(`小计：${countSubtotal}元
+   `);
 }
+
 rl.on('line', function (time) {
   if (time !== "") {
     let arr = time.trim().split(" ");
@@ -214,8 +219,16 @@ rl.on('line', function (time) {
     rl.close();
   }
 });
+module.exports = {
+  isLegal,
+  getScheduleTime,
+  getCancelTime,
+  generateRecords,
+  calculateSubTotal,
+  getSubTotal,
+  printCharge
+};
 
 //Todo
-//1.把node src/manage.js改了
-//2.提交
-//3.写readme,和测试
+//3.写测试
+//4.重构（把代码分开,调整目录结构）
